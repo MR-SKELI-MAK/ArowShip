@@ -819,6 +819,14 @@ color: transparent;">
     function distSq(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy }
     function dist(a, b) { return Math.sqrt(distSq(a, b)) }
 
+    function getRandomUsername() {
+  const names = [
+    "ShadowFox", "BlueNova", "IronClad", "SeaWolf", "PixelPirate", "AquaBlade", "StormRider", "Nebula", "CrimsonTide",
+    "GhostShip", "Nightmare", "Vortex", "Thunder", "Frostbite", "Solaris", "Spectre", "Falcon", "Hydra", "Tempest", "Blitz"
+  ];
+  return names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 1000);
+}
+
     /**
      * Finds a random position clear of islands, covering the entire map.
      * @param {number} minR Minimum clearance radius from the island's edge.
@@ -1126,25 +1134,25 @@ color: transparent;">
       }
 
 
-      fire() {
-        if (this.reload > 0) return;
-        this.reload = this.isBot || this.isTeammate ? this.reloadTimeBase : 25 / fireRateMultiplier;
+    fire() {
+  // Only fire if reload is 0 or less
+  if (this.reload > 0) return;
+  this.reload = this.isBot || this.isTeammate ? this.reloadTimeBase : 18 / fireRateMultiplier;
 
-        const offset = this.size + 8;
-        const angles = [this.angle];
+  const offset = this.size + 8;
+  const angles = [this.angle];
 
-        if (!this.isBot && !this.isTeammate && multiShotCount > 0) {
-          angles.push(this.angle + 0.1);
-          angles.push(this.angle - 0.1);
-        }
+  if (!this.isBot && !this.isTeammate && multiShotCount > 0) {
+    angles.push(this.angle + 0.1);
+    angles.push(this.angle - 0.1);
+  }
 
-        for (const angle of angles) {
-          const bx = this.x + Math.cos(angle) * offset;
-          const by = this.y + Math.sin(angle) * offset;
-          entities.bullets.push(new Bullet(bx, by, angle, this));
-        }
-      }
-
+  for (const angle of angles) {
+    const bx = this.x + Math.cos(angle) * offset;
+    const by = this.y + Math.sin(angle) * offset;
+    entities.bullets.push(new Bullet(bx, by, angle, this));
+  }
+}
       damage(n) {
         this.health -= n;
         if (this.health <= 0) this.destroy();
@@ -1433,10 +1441,15 @@ color: transparent;">
       player = new Ship(pPos.x, pPos.y, '#8bd3ff', false);
 
       // Bots
-      for (let i = 0; i < numBots; i++) {
-        const botPos = findClearShipPosition(50);
-        entities.bots.push(new Ship(botPos.x, botPos.y, '#ffadad', true));
-      }
+      // ...inside spawnWorld()...
+// Bots
+for (let i = 0; i < numBots; i++) {
+  const botPos = findClearShipPosition(50);
+  const bot = new Ship(botPos.x, botPos.y, '#ffadad', true);
+  bot.name = getRandomUsername(); // Assign random username
+  entities.bots.push(bot);
+}
+// ...existing code...
 
       console.log(`World spawned. Bot Vision Range: ${BOT_VISION_RANGE} (60 degrees cone).`);
 
@@ -1486,22 +1499,20 @@ color: transparent;">
 
 
       // 2. Player Input & Camera
-      if (player) {
-        player.angle = Math.atan2(mouse.y - H / 2, mouse.x - W / 2);
-        player.speed = 0;
-        if (keys['w']) player.speed = 0.15;
-        else if (keys['s']) player.speed = -0.07;
+if (player) {
+  player.angle = Math.atan2(mouse.y - W / 2, mouse.x - H / 2);
+  player.speed = 0;
+  if (keys['w']) player.speed = 0.15;
+  else if (keys['s']) player.speed = -0.07;
 
-        // Firing logic
-        if (mouse.down) {
-          if (player.reload <= 0) {
-            player.fire();
-          }
-        }
-        player.update(dt);
-        camera.x = player.x;
-        camera.y = player.y;
-      }
+  // Firing logic (continuous fire while holding mouse)
+  if (mouse.down) {
+    player.fire(); // Always call fire, Ship.fire() checks reload
+  }
+  player.update(dt);
+  camera.x = player.x;
+  camera.y = player.y;
+}
 
       // 3. Dynamic Pickup Spawning (Global Replenishment Logic)
       checkAndReplenishPickups();
@@ -1596,10 +1607,10 @@ color: transparent;">
       document.getElementById('exp-info').innerText = nextExp > 0 ? `${Math.round(currentExp)} / ${nextExp} Exp (${upgradesAvailable} pts)` : `MAX LEVEL (${upgradesAvailable} pts)`;
       document.querySelector('.exp-fill').style.width = `${expPercent}%`;
 
-      // ...inside update(dt)...
+     
       const leaderboardData = getLeaderboardData();
       renderLeaderboard(leaderboardData);
-      // ...existing code...
+  
     }
 
     function draw() {
@@ -1810,44 +1821,37 @@ color: transparent;">
       });
     });
     // --- LEADERBOARD CORE LOGIC ---
-    /**
-     * Calculates and sorts all entries for the leaderboard.
-     * Rank Value = Score + (Eliminations * 100)
-     * @returns {Array<Object>} Sorted list of player and bot entries.
-     */
-    function getLeaderboardData() {
-      // Player eliminations and score
-      const currentBotsRemaining = entities.bots.length;
-      const playerEliminations = initialBotCount - currentBotsRemaining;
-      const playerRankValue = score + (playerEliminations * 100);
+function getLeaderboardData() {
+  // Player eliminations and score
+  const currentBotsRemaining = entities.bots.length;
+  const playerEliminations = initialBotCount - currentBotsRemaining;
+  const playerRankValue = score + (playerEliminations * 100);
 
-      const playerEntry = {
-        name: playerName,
-        score: score,
-        eliminations: playerEliminations,
-        rankValue: playerRankValue,
-        isPlayer: true
-      };
+  const playerEntry = {
+    name: playerName,
+    score: score,
+    eliminations: playerEliminations,
+    rankValue: playerRankValue,
+    isPlayer: true
+  };
 
-      // Real bots: Give them a score (could be based on health, or random for demo)
-      const botEntries = entities.bots.map((b, i) => ({
-        name: b.name || `Bot ${i + 1}`,
-        score: Math.round(b.health), // Or use another metric
-        eliminations: 0, // Track if you implement bot-vs-bot
-        rankValue: Math.round(b.health), // Or another formula
-        isPlayer: false
-      }));
+  // Make bot score very stable: only health, no proximity, no random
+  const botEntries = entities.bots.map((b, i) => {
+    let botScore = Math.round(b.health);
+    return {
+      name: b.name || getRandomUsername(),
+      score: botScore,
+      eliminations: 0,
+      rankValue: botScore,
+      isPlayer: false
+    };
+  });
 
-      const allEntries = [playerEntry, ...botEntries];
-      allEntries.sort((a, b) => b.rankValue - a.rankValue);
+  const allEntries = [playerEntry, ...botEntries];
+  allEntries.sort((a, b) => b.rankValue - a.rankValue);
 
-      return allEntries;
-    }
-
-    /**
-     * Renders the leaderboard list, showing the Top 5 and the player's rank if they are outside the Top 5.
-     * @param {Array<Object>} allEntries - Sorted list of all ships.
-     */
+  return allEntries;
+}
     function renderLeaderboard(allEntries) {
       const maxDisplay = 5;
       let html = '';
