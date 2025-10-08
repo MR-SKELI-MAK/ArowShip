@@ -1500,7 +1500,7 @@ for (let i = 0; i < numBots; i++) {
 
       // 2. Player Input & Camera
 if (player) {
-  player.angle = Math.atan2(mouse.y - W / 2, mouse.x - H / 2);
+ player.angle = Math.atan2(mouse.y - H / 2, mouse.x - W / 2);
   player.speed = 0;
   if (keys['w']) player.speed = 0.15;
   else if (keys['s']) player.speed = -0.07;
