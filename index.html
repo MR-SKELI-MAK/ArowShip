@@ -1,0 +1,2213 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" href="favicon.jpg">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <title>Arrow Ship</title>
+  <style>
+    /* CSS for styling the game UI */
+    :root {
+      --bg: #0b1220;
+      --ui: rgba(10, 14, 20, 0.5);
+      --accent: #53c6f7;
+      --muted: #9aa7b2;
+      --health: #10b981;
+      /* Green */
+      --fire: #f87171;
+      /* Red */
+      --multishot: #facc15;
+      /* Yellow */
+      --teammate: #a78bfa;
+      /* Purple */
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+      overflow: hidden;
+      /* Prevent body scroll */
+    }
+
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      background: linear-gradient(180deg, var(--bg), #07101a);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, #07202a, #021018);
+      image-rendering: pixelated;
+      /* Good choice for 2D games */
+      cursor: none;
+      /* Hide default cursor to use custom crosshair */
+    }
+
+    /* HUD & Panel Styles */
+    .hud {
+      position: fixed;
+      left: 18px;
+      top: 18px;
+      color: #dbeafe;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .panel {
+      background: rgba(10, 14, 20, 0.5);
+      padding: 8px 12px;
+      border-radius: 10px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 6px 18px rgba(2, 6, 10, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    button {
+      background: rgba(10, 14, 20, 0.5);
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.1s;
+      font-weight: bold;
+
+    }
+
+    button:hover {
+      background: rgba(10, 14, 20, 0.5);
+      box-shadow:
+        0 0 10px var(--accent);
+      /* Outer glow */
+      border: 2px solid var(--accent);
+      /* Brighter border */
+
+    }
+
+    .mini {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Overlay and Menu Styles */
+    #overlay,
+    #gameOverOverlay,
+    #messageBox {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      background: rgba(10, 14, 20, 0.5);
+    }
+
+    .menu {
+
+      padding: 22px;
+      border-radius: 12px;
+      color: #e6f6ff;
+      box-shadow: 0 10px 40px rgba(2, 6, 10, 0.6);
+      width: 420px;
+      background: var(--ui);
+      /* Ensure menu background is solid for readability */
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .menu h2 {
+      margin: 0 0 8px 0;
+      font-size: 50px;
+      font-weight: 900;
+    }
+
+    .row {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    input {
+      outline: none;
+      border: none;
+      background-color: none;
+      text-decoration: none;
+    }
+
+    input[type="text"] {
+      background: rgba(10, 14, 20, 0);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      width: 60%;
+      margin-left: 1%;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.493);
+      border-radius: 0%;
+    }
+
+    #usernameAboveShip {
+      position: fixed;
+      background: rgba(10, 14, 20, 0.5);
+      padding: 4px 8px;
+      border-radius: 8px;
+      color: #dbeafe;
+      font-size: 12px;
+      transform: translate(-50%, -150%);
+      pointer-events: none;
+      white-space: nowrap;
+      display: none;
+      z-index: 5;
+    }
+
+    /* --- FOOTER & LEVEL BAR STYLES --- */
+    footer {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 0;
+      text-align: center;
+      z-index: 5;
+    }
+
+    .level-bar-container {
+      width: 520px;
+      /* Increased width to accommodate upgrades */
+      margin: 0 auto;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: rgba(10, 14, 20, 0.8);
+      box-shadow: 0 4px 12px rgba(2, 6, 10, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #levelText {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .exp-bar {
+      height: 8px;
+      background-color: var(--ui);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .exp-fill {
+      height: 100%;
+      background-color: var(--health);
+      transition: width 0.3s ease;
+    }
+
+    /* --- ALWAYS-VISIBLE UPGRADE BUTTONS --- */
+    .upgrade-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      outline: none;
+    }
+
+    .upgrade-button {
+      background: var(--ui);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      color: #e6f6ff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      line-height: 1;
+      transition: all 0.15s;
+      box-shadow: 0 3px 6px rgba(2, 6, 10, 0.4);
+    }
+
+    .upgrade-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .upgrade-button.ready {
+      animation: pulse 1.5s infinite;
+    }
+
+    .upgrade-button.ready:hover {
+      animation: none;
+    }
+
+    .upgrade-button.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+      border-color: rgba(255, 255, 255, 0.315);
+      transform: none;
+      background: var(--ui);
+      color: #888 !important;
+    }
+
+    /* Leaderboard container styling */
+    .leaderboard {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      top: auto;
+      left: auto;
+      z-index: 20;
+      color: #dbeafe;
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      transition: opacity 0.4s;
+
+    }
+
+    /* Title styling */
+    .leaderboard h3 {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+      color: var(--accent);
+    }
+
+    /* List styling */
+    .leaderboard ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 13px;
+    }
+
+    /* Individual list item (row) styling */
+    .leaderboard li {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .leaderboard li:last-child {
+      border-bottom: none;
+    }
+
+
+    /* Rank number column */
+    .leaderboard .rank {
+      width: 30px;
+      font-weight: bold;
+    }
+
+    /* Name column */
+    .leaderboard .name {
+      flex-grow: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Score/Stats column */
+    .leaderboard .stats {
+      width: 80px;
+      text-align: right;
+      color: var(--health);
+    }
+
+    /* Special styling for the player's rank if they are outside the Top 5 */
+    .leaderboard .player-rank {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      color: var(--health);
+      /* Highlighted color */
+      font-weight: bold;
+    }
+
+    .leaderboard.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    input[type="range"]#musicVolume,
+    input[type="range"]#musicVolumeInGame,
+    input[type="range"]#buttonVolume,
+    input[type="range"]#buttonVolumeInGame {
+      accent-color: var(--accent);
+
+    }
+
+    /* Color coding for buttons */
+    .upgrade-button[data-color="health"] {
+      border-color: var(--health);
+    }
+
+    .upgrade-button[data-color="multishot"] {
+      border-color: var(--multishot);
+    }
+
+    .upgrade-button[data-color="speedyfire"] {
+      border-color: var(--fire);
+    }
+
+    .upgrade-button[data-color="teammate"] {
+      border-color: var(--teammate);
+    }
+
+    /* Pulse animation for available upgrades */
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(31, 182, 255, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px rgba(31, 182, 255, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(31, 182, 255, 0);
+      }
+    }
+
+
+    @media (orientation: portrait) {
+      #rotateDeviceOverlay {
+        display: flex !important;
+      }
+
+      .app,
+      canvas,
+      .hud,
+      .panel,
+      .leaderboard,
+      footer,
+      #overlay,
+      #gameOverOverlay,
+      #messageBox,
+      #settingsOverlay,
+      #inGameDialog {
+        display: none !important;
+      }
+    }
+
+    /* Joystick styles - smaller for mobile */
+    #joystickContainer {
+      position: fixed;
+      left: 4vw;
+      bottom: 6vw;
+      width: 70px;
+      height: 70px;
+      z-index: 100;
+      display: none;
+      touch-action: none;
+      opacity: 0.92;
+    }
+
+    #joystickBase {
+      width: 100%;
+      height: 100%;
+      background: rgba(80, 120, 180, 0.13);
+      border-radius: 50%;
+      position: absolute;
+    }
+
+    #joystickKnob {
+      width: 34px;
+      height: 34px;
+      background: rgba(80, 180, 255, 0.7);
+      border-radius: 50%;
+      position: absolute;
+      left: 18px;
+      top: 18px;
+      transition: left 0.08s, top 0.08s;
+      touch-action: none;
+    }
+
+    a {
+      text-decoration: none;
+      color: var(--muted);
+    }
+
+    /* --- TIGHTER UPGRADE BUTTONS, WIDER EXP BAR, SLIGHTLY LARGER LEADERBOARD FOR MOBILE --- */
+    @media (max-width: 900px) {
+
+      .upgrade-buttons {
+        gap: 3.5px !important;
+        margin-bottom: 0.5px !important;
+        flex-wrap: wrap !important;
+        padding: 0 !important;
+        border-radius: 8%;
+      }
+
+      .upgrade-button {
+        font-size: 7.5px !important;
+        min-width: 12vw !important;
+        max-width: 16vw !important;
+        padding: 0.5px 0.5px !important;
+        border-radius: 9.5px !important;
+      }
+
+      .level-bar-container {
+        width: 320px !important;
+        /* wider exp bar */
+        max-width: 75vw !important;
+        padding: 3px 4px !important;
+        border-radius: 6px !important;
+        font-size: 10px !important;
+      }
+
+      .exp-bar {
+        height: 5px !important;
+        border-radius: 2px !important;
+        margin-top: 2px !important;
+      }
+
+      .leaderboard.panel,
+      #leaderboard.leaderboard.panel {
+        width: 30vw !important;
+        /* slightly larger */
+        min-width: 30px !important;
+        max-width: 38vw !important;
+        font-size: 9px !important;
+        right: 0.5vw !important;
+        bottom: 0.5vw !important;
+        border-radius: 4px !important;
+        padding: 1.5px 1.5px !important;
+      }
+
+      .leaderboard h3 {
+        font-size: 12px !important;
+      }
+
+      .leaderboard ul {
+        font-size: 9px !important;
+      }
+
+    }
+
+    @media (max-width: 600px) {
+
+      .app,
+      canvas {
+        transform: scale(0.85);
+        transform-origin: top left;
+        width: 100vw !important;
+        height: 100vh !important;
+      }
+
+      body,
+      html {
+        overflow: auto !important;
+      }
+
+      .upgrade-button {
+        font-size: 5px !important;
+        min-width: 28vw !important;
+        max-width: 36vw !important;
+        padding: 0.5px 0.5px !important;
+        border-radius: 1px !important;
+      }
+
+      .level-bar-container {
+        width: 99vw !important;
+        max-width: 99vw !important;
+      }
+
+      .exp-bar {
+        height: 4px !important;
+      }
+
+      .leaderboard.panel,
+      #leaderboard.leaderboard.panel {
+        width: 30vw !important;
+        min-width: 20px !important;
+        max-width: 56vw !important;
+        font-size: 7px !important;
+        padding: 1px 1px !important;
+        border-radius: 2px !important;
+      }
+
+      .leaderboard h3 {
+        font-size: 8px !important;
+      }
+
+      .leaderboard ul {
+        font-size: 7px !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <canvas id="c"></canvas>
+    <div id="usernameAboveShip"></div>
+
+    <div class="hud panel">
+      <h1>
+        <div id="usernameHud">Username: Player</div>
+      </h1>
+      <div class="mini" id="health">Health: 0%</div>
+      <div class="mini" id="score">Score: 0</div>
+      <div class="mini" id="elimination">Elimination: 0</div>
+      <div class="mini" id="ship">Ships: 0</div>
+      <div class="mini" id="island">Islands: 0</div>
+    </div>
+
+    <!-- Leaderboard HTML Structure -->
+    <div id="leaderboard" class="leaderboard panel">
+      <center>
+        <h3>Leaderboard </h3>
+      </center>
+      <ul id="leaderboardList">
+        <!-- Dynamic content will be generated here by JavaScript -->
+      </ul>
+
+      <!-- End Leaderboard HTML Structure -->
+    </div>
+
+    <!-- In-Game Menu Button (only visible during game) -->
+    <button id="inGameMenuBtn"
+      style="position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:30; display:none;"><i
+        class="fa-solid fa-pause"></i></button>
+
+    <footer>
+      <div class="upgrade-buttons" id="upgradeButtonsContainer">
+        <button class="upgrade-button" data-upgrade="health" data-color="health">
+          <span class="title" style="color:var(--health);">+50 Health</span><br>
+          <span class="mini" id="health-status">Max: 100</span>
+        </button>
+        <button class="upgrade-button" data-upgrade="multishot" data-color="multishot">
+          <span class="title" style="color:var(--multishot);">Dual Cannon</span><br>
+          <span class="mini" id="multishot-status">Not Acquired</span>
+        </button>
+        <button class="upgrade-button" data-upgrade="speedyfire" data-color="speedyfire">
+          <span class="title" style="color:var(--fire);">+20% Fire Rate</span><br>
+          <span class="mini" id="speedyfire-status">Rate: 1x</span>
+        </button>
+        <button class="upgrade-button disabled" data-upgrade="teammate" data-color="teammate">
+          <span class="title" style="color:var(--teammate);">Teammate (Lvl 5)</span><br>
+          <span class="mini" id="teammate-status">Locked</span>
+        </button>
+      </div>
+      <div class="level-bar-container">
+        <div id="levelText">
+          <span id="current-level">Level 0</span>
+          <span id="exp-info">0 / 10 Exp</span>
+        </div>
+        <div class="exp-bar">
+          <div class="exp-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+    </footer>
+
+
+
+    <div id="overlay">
+      <div class="menu panel">
+        <center>
+          <h2>Arrow Ship</h2>
+        </center>
+        <p class="mini" style="text-align: center;">Top-down ship combat: move, aim, shoot cannonballs, dodge islands,
+          and Level Up to gain powerful upgrades!</p>
+
+        <div style="height:12px"></div>
+        <div class="row" style="display:flex;gap:8px;justify-content:center;">
+          <label style="margin-right: 2%; font-weight:500;">Enter Username :</label>
+          <input id="usernameInput" type="text" placeholder="Player" maxlength="20">
+        </div>
+        <div style="height:20px"></div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button style="flex-grow: 1" id="tutorialBtn">Quick Tutorial</button>
+          <button style="flex-grow: 1" id="settingsBtn">Settings</button>
+          <button style="flex-grow: 1" id="startBtn">Start Game</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="gameOverOverlay" style="display: none;">
+      <div class="menu panel">
+        <center>
+          <h2 id="endGameTitle">VICTORY!</h2>
+          <p id="endGameMessage" class="mini">You have eliminated all enemy ships.</p>
+        </center>
+        <div style="height: 12px;"></div>
+        <div class="row">
+          <div id="endGameInfo" style="width: 100%; text-align: center;">
+            <p>Username: <span id="endGameUsername"></span></p>
+            <p>Level: <span id="finalLevel" style="color: var(--health);">0</span></p>
+            <p>Eliminations: <span id="eliminations" style="color: var(--health);">0</span></p>
+            <p>Final Score: <span id="finalScore" style="color: var(--health);">0</span></p>
+          </div>
+        </div>
+        <div style="height: 12px;"></div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button id="playAgainBtn">Play Again</button>
+          <button id="returnToMenuBtn">Menu</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="messageBox" style="display: none;">
+      <div class="menu panel">
+        <center>
+          <h3 id="messageTitle">Tutorial</h3>
+        </center>
+        <p class="mini" id="messageText"></p>
+        <div style="height: 12px;"></div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button id="closeMessageBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="settingsOverlay"
+      style="display: none; position: fixed; inset: 0; z-index: 20; background: rgba(10,14,20,0.5); align-items: center; justify-content: center;">
+      <div class="menu panel" style="max-height: 80vh; overflow-y: auto;">
+        <center>
+          <h3>Settings</h3>
+        </center>
+        <div style="margin: 12px 0;">
+          <label style="display:block;margin-bottom:6px;">Button Volume: <span
+              id="buttonVolumeValue">100</span>%</label>
+          <input type="range" id="buttonVolume" min="0" max="100" value="50" style="width:100%;">
+        </div>
+        <div style="margin: 12px 0;">
+          <label style="display:block;margin-bottom:6px;">Music Volume: <span id="musicVolumeValue">100</span>%</label>
+          <input type="range" id="musicVolume" min="0" max="100" value="50" style="width:100%;">
+        </div>
+        <hr>
+        <center>
+          <h3>Credits</h3>
+        </center>
+        <div style="margin: 12px 0; font-size: 15px; color: var(--muted);">
+          <p>This game is developed by <b>MR_SKELI_MAK</b>.</p>
+          <p>Music credits: <br>
+            <b>Shattered Dungeon</b> &amp; <b>Minecraft</b>
+          </p>
+          <p>If you have any further ideas, let me know on &ensp;
+            <a href="https://www.instagram.com/_skeli.thoughts_/" id="instaLink" target="_blank"
+              rel="noopener noreferrer" style="background: radial-gradient(circle at 33% 100%, #fed373 4%, #f15245 30%, #d92e7f 62%, #9b36b7 85%, #515ecf);-webkit-background-clip: text;
+background-clip: text;
+color: transparent;">
+              <i class="fa-brands fa-instagram"></i>
+            </a><b><i>Instagram</i></b>
+          </p>
+        </div>
+        <div style="height: 12px;"></div>
+        <div style="display: flex; justify-content: flex-end; position: sticky; bottom: 0;">
+          <button class="botton" id="closeSettingsBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- In-Game Dialog -->
+    <div id="inGameDialog"
+      style="display:none; position:fixed; inset:0; z-index:40; background:rgba(10,14,20,0.5); align-items:center; justify-content:center;">
+      <div class="menu panel">
+        <center>
+          <h3>Game Paused</h3>
+        </center>
+        <div style="height:12px"></div>
+        <div style="margin: 12px 0;">
+          <label style="display:block;margin-bottom:6px;">Button Volume: <span
+              id="buttonVolumeValueInGame">100</span>%</label>
+          <input type="range" id="buttonVolumeInGame" min="0" max="100" value="100" style="width:100%;">
+        </div>
+        <div style="margin: 12px 0;">
+          <label style="display:block;margin-bottom:6px;">Music Volume: <span
+              id="musicVolumeValueInGame">100</span>%</label>
+          <input type="range" id="musicVolumeInGame" min="0" max="100" value="100" style="width:100%;">
+        </div>
+        <div style="height:12px"></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end;">
+          <button id="resumeBtn">Resume</button>
+          <button id="quitToMenuBtn">Quit to Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <audio id="buttonClickSound" src="click.ogg" preload="auto"></audio>
+    <audio id="music1" src="1.mp3" preload="auto" loop></audio>
+    <audio id="killSound" src="player die.mp3" preload="auto"></audio>
+    <audio id="levelUpSound" src="levelup.mp3" preload="auto"></audio>
+    <audio id="upgradeSound" src="upraded.mp3" preload="auto"></audio>
+
+    <div id="rotateDeviceOverlay"
+      style="display:none;position:fixed;inset:0;z-index:999;background:#0b1220;color:#fff;align-items:center;justify-content:center;font-size:2em;">
+      <div style="text-align:center;">
+        <i class="fa-solid fa-rotate fa-2x"></i><br>
+        Please rotate your device to <b>landscape</b> to play!
+      </div>
+    </div>
+
+  </div>
+  <!-- Joystick for mobile -->
+  <div id="joystickContainer">
+    <div id="joystickBase"></div>
+    <div id="joystickKnob"></div>
+  </div>
+  <script>
+    // --- CONSTANTS & SETUP ---
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const usernameAboveShipEl = document.getElementById('usernameAboveShip');
+    const usernameHudEl = document.getElementById('usernameHud');
+    const leaderboardListEl = document.getElementById('leaderboardList');
+    const TAU = Math.PI * 2;
+    const WORLD_W = 12000;
+    const WORLD_H = 12000;
+    const SHIP_COLLISION_RADIUS = 16;
+    const BULLET_DAMAGE = 20;
+    const BOT_RELOAD_TIME = 25;
+
+    const BULLET_SPEED = 8;
+    const TARGET_EXP_PICKUPS = 12000;
+    const MAX_HEALTH_PICKUPS = 90;
+
+    const LEVEL_POINTS_BASE = 10;
+    const TEAMMATE_LVL_REQ = 5;
+
+    // --- NEW AI CONSTANTS ---
+    const BOT_VISION_RANGE = 1000;
+    // const BOT_VISION_ANGLE = Math.PI / 3;  60 degrees (30 degrees each side)
+    const ROAM_TIMER_MAX = 300; // How many updates before choosing a new roam target
+
+    let W = canvas.width = innerWidth;
+    let H = canvas.height = innerHeight;
+
+    // --- GAME STATE VARIABLES ---
+    let gameState = 'menu';
+    let player = null;
+    let entities = { bullets: [], bots: [], islands: [], particles: [], pickups: [], teammates: [] };
+    let keys = {};
+    let mouse = { x: 0, y: 0, down: false };
+    let score = 0;
+    let playerName = 'Player';
+    let initialBotCount = 0;
+    let camera = { x: WORLD_W / 2, y: WORLD_H / 2 };
+    let healthPickupCount = 0;
+    let expPickupCount = 0;
+
+    // --- PLAYER STATS ---
+    let level = 0;
+    let currentExp = 0;
+    let upgradesAvailable = 0;
+    let maxHealth = 100;
+    let fireRateMultiplier = 1;
+    let multiShotCount = 0;
+    let hasTeammate = false;
+
+
+    // --- UTILITY FUNCTIONS ---
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)) }
+    function rand(a = 0, b = 1) { return a + Math.random() * (b - a) }
+    function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
+    function distSq(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy }
+    function dist(a, b) { return Math.sqrt(distSq(a, b)) }
+
+    /**
+     * Finds a random position clear of islands, covering the entire map.
+     * @param {number} minR Minimum clearance radius from the island's edge.
+     * @returns {Object | null} A position object {x, y} or null if no clear spot found.
+     */
+    function findClearPosition(minR = 12) {
+      let attempts = 0;
+      let p;
+
+      while (attempts < 50) {
+        // Always spawn across the entire map dimensions
+        p = {
+          x: rand(30, WORLD_W - 30),
+          y: rand(30, WORLD_H - 30)
+        };
+
+        let clear = true;
+
+        // Check collision with islands
+        for (const isl of entities.islands) {
+          if (dist(p, isl) < isl.r + minR) {
+            clear = false;
+            break;
+          }
+        }
+
+        if (clear) return p;
+        attempts++;
+      }
+      return null;
+    }
+
+    function showMessage(title, text) {
+      document.getElementById('messageTitle').innerText = title;
+      document.getElementById('messageText').innerText = text;
+      document.getElementById('messageBox').style.display = 'flex';
+    }
+
+
+    // --- LEVELING AND UPGRADE SYSTEM FUNCTIONS ---
+
+    // Exponential level progression: Lvl 1: 10, Lvl 2: 20, Lvl 3: 40, Lvl 4: 80...
+    function getExpNeeded(lvl) {
+      if (lvl === 0) return 0;
+      return LEVEL_POINTS_BASE * (2 ** (lvl - 1));
+    }
+
+    function checkLevelUp() {
+      if (level === 0) level = 1;
+
+      let needed = getExpNeeded(level);
+      let newLevel = false;
+      while (currentExp >= needed) {
+        currentExp -= needed;
+        level++;
+        upgradesAvailable++;
+        needed = getExpNeeded(level);
+        newLevel = true;
+      }
+
+      if (newLevel) {
+        updateUpgradeButtons();
+        playLevelUpSound();
+      }
+    }
+
+    function applyUpgrade(type) {
+      if (upgradesAvailable <= 0) return;
+
+      switch (type) {
+        case 'health':
+          maxHealth += 50;
+          player.health += 50;
+          player.health = clamp(player.health, 0, maxHealth);
+          document.getElementById('health-status').innerText = `Max: ${maxHealth}`;
+          break;
+        case 'multishot':
+          multiShotCount = 1;
+          document.getElementById('multishot-status').innerText = `Acquired`;
+          break;
+        case 'speedyfire':
+          fireRateMultiplier *= 1.20;
+          player.reloadTimeBase /= 1.20;
+          document.getElementById('speedyfire-status').innerText = `Rate: ${fireRateMultiplier.toFixed(2)}x`;
+          break;
+        case 'teammate':
+          if (level < TEAMMATE_LVL_REQ || hasTeammate) return;
+          hasTeammate = true;
+          spawnTeammate(player.x - 50, player.y - 50);
+          document.getElementById('teammate-status').innerText = `Active`;
+          break;
+        default:
+          return;
+      }
+
+      upgradesAvailable--;
+      updateUpgradeButtons();
+      playUpgradeSound();
+    }
+
+    function updateUpgradeButtons() {
+      const buttons = document.querySelectorAll('.upgrade-button');
+
+      buttons.forEach(btn => {
+        const type = btn.dataset.upgrade;
+        btn.classList.remove('ready');
+
+        if (upgradesAvailable > 0) {
+          // Check if specific upgrade is already maxed or meets level requirement
+          if (type === 'teammate') {
+            if (level >= TEAMMATE_LVL_REQ && !hasTeammate) {
+              btn.classList.add('ready');
+              btn.classList.remove('disabled');
+              document.getElementById('teammate-status').innerText = 'Ready to Buy!';
+            } else {
+              btn.classList.add('disabled');
+              document.getElementById('teammate-status').innerText = hasTeammate ? 'Acquired' : `Lvl ${TEAMMATE_LVL_REQ} Required`;
+            }
+          } else if (type === 'multishot' && multiShotCount > 0) {
+            btn.classList.add('disabled');
+          } else {
+            btn.classList.add('ready');
+            btn.classList.remove('disabled');
+          }
+        } else {
+          // No points available, only Teammate status needs update if level is reached
+          btn.classList.remove('ready');
+          if (type === 'teammate') {
+            if (level >= TEAMMATE_LVL_REQ && !hasTeammate) {
+              btn.classList.remove('disabled');
+              document.getElementById('teammate-status').innerText = 'Lvl Reached';
+            } else {
+              btn.classList.add('disabled');
+            }
+          } else if (type === 'multishot' && multiShotCount === 0) {
+            btn.classList.add('disabled');
+          }
+          else {
+            btn.classList.add('disabled');
+          }
+        }
+      });
+    }
+
+
+    // --- ENTITY CLASSES ---
+
+    class Ship {
+      constructor(x, y, color = '#8bd3ff', isBot = false, isTeammate = false) {
+        this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.angle = rand(0, TAU);
+        this.color = color;
+        this.size = 22;
+        this.collisionR = SHIP_COLLISION_RADIUS;
+        this.maxHealth = isBot || isTeammate ? 100 : maxHealth;
+        this.health = this.maxHealth;
+        this.reload = 0;
+        this.reloadTimeBase = isBot ? BOT_RELOAD_TIME : 25 / fireRateMultiplier;
+        this.isBot = isBot;
+        this.isTeammate = isTeammate;
+        this.speed = 0;
+        this.turnSpeed = isTeammate ? 0.08 : 0.06;
+        this.thrust = 0.12;
+
+        // --- Bot Roaming/AI properties ---
+        if (this.isBot) {
+          this.roamTarget = findClearPosition(30) || { x: x, y: y };
+          this.roamTimer = ROAM_TIMER_MAX;
+        }
+      }
+
+      update(dt) {
+        if (this.isBot) this.ai(dt);
+        else if (this.isTeammate) this.teammateAI(dt);
+
+        // Physics
+        const thrust = this.speed * dt;
+        this.vx += Math.cos(this.angle) * thrust;
+        this.vy += Math.sin(this.angle) * thrust;
+
+        // Dampening  
+        this.vx *= 0.995; this.vy *= 0.995;
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        // World Boundary Clamping
+        const r = this.collisionR;
+        this.x = clamp(this.x, r, WORLD_W - r);
+        this.y = clamp(this.y, r, WORLD_H - r);
+
+        if (this.reload > 0) this.reload -= dt;
+      }
+
+      ai(dt) {
+        const targets = [player, ...entities.teammates].filter(t => t);
+        let target = null;
+        let minDistSq = Infinity;
+
+        for (const t of targets) {
+          const dSq = distSq(this, t);
+          if (dSq < minDistSq) {
+            minDistSq = dSq;
+            target = t;
+          }
+        }
+
+        // --- VISION CHECK (Check if player/teammate is seen) ---
+        let isTargetVisible = false;
+
+        if (target) {
+          const VISION_RANGE_SQ = BOT_VISION_RANGE * BOT_VISION_RANGE;
+          if (minDistSq < VISION_RANGE_SQ) {
+            // Target is within range, no angle check needed for 360 vision
+            isTargetVisible = true;
+          }
+        }
+
+        if (isTargetVisible) {
+          // TARGET ACQUIRED: Chase, Turn, Shoot
+          const dx = target.x - this.x;
+          const dy = target.y - this.y;
+          const angToT = Math.atan2(dy, dx);
+          const d = dist(this, target);
+
+          let da = (angToT - this.angle + Math.PI) % (TAU) - Math.PI;
+          this.angle += clamp(da, -this.turnSpeed * dt, this.turnSpeed * dt);
+
+          // Movement/Pacing Logic
+          if (d > 180) this.speed = 0.12;
+          else if (d < 120) this.speed = -0.02;
+          else this.speed = 0.03;
+
+          if (this.reload <= 0 && d < BOT_VISION_RANGE * 0.9) {
+            this.fire();
+          }
+          // Reset roam timer/target when actively chasing
+          this.roamTimer = ROAM_TIMER_MAX;
+        } else {
+          // NO TARGET: Roam/Patrol
+          this.roamTimer -= dt;
+
+          if (this.roamTimer <= 0 || distSq(this, this.roamTarget) < 50 * 50) {
+            this.roamTarget = findClearPosition(30) || { x: this.x, y: this.y };
+            this.roamTimer = ROAM_TIMER_MAX;
+          }
+
+          const dx = this.roamTarget.x - this.x;
+          const dy = this.roamTarget.y - this.y;
+          const angToRoam = Math.atan2(dy, dx);
+
+          // Turn towards roam target
+          let da = (angToRoam - this.angle + Math.PI) % (TAU) - Math.PI;
+          this.angle += clamp(da, -this.turnSpeed * dt * 0.5, this.turnSpeed * dt * 0.5);
+
+          // Keep moving slowly
+          this.speed = 0.08;
+        }
+      }
+
+      // ...inside class Ship...
+      teammateAI(dt) {
+        // Find closest bot
+        let closestBot = null;
+        let minDistSq = Infinity;
+        for (const bot of entities.bots) {
+          const dSq = distSq(this, bot);
+          if (dSq < minDistSq) {
+            minDistSq = dSq;
+            closestBot = bot;
+          }
+        }
+
+        // If bot is close, attack it
+        if (closestBot && Math.sqrt(minDistSq) < 400) {
+          const dx = closestBot.x - this.x;
+          const dy = closestBot.y - this.y;
+          const angToTarget = Math.atan2(dy, dx);
+          const d = Math.sqrt(minDistSq);
+
+          let idealDist = 200;
+          if (d > idealDist) this.speed = 0.1;
+          else if (d < idealDist - 20) this.speed = -0.02;
+          else this.speed = 0.03;
+
+          let da = (angToTarget - this.angle + Math.PI) % (TAU) - Math.PI;
+          this.angle += clamp(da, -this.turnSpeed * dt * 2, this.turnSpeed * dt * 2);
+
+          if (this.reload <= 0) {
+            this.fire();
+          }
+        } else if (player) {
+          // Otherwise, follow player and wander a bit
+          const dx = player.x - this.x + rand(-80, 80);
+          const dy = player.y - this.y + rand(-80, 80);
+          const angToPlayer = Math.atan2(dy, dx);
+          const d = dist(this, player);
+
+          if (d > 120) this.speed = 0.09;
+          else if (d < 60) this.speed = -0.01;
+          else this.speed = 0.02;
+
+          let da = (angToPlayer - this.angle + Math.PI) % (TAU) - Math.PI;
+          this.angle += clamp(da, -this.turnSpeed * dt * 2, this.turnSpeed * dt * 2);
+        }
+      }
+
+
+      fire() {
+        if (this.reload > 0) return;
+        this.reload = this.isBot || this.isTeammate ? this.reloadTimeBase : 25 / fireRateMultiplier;
+
+        const offset = this.size + 8;
+        const angles = [this.angle];
+
+        if (!this.isBot && !this.isTeammate && multiShotCount > 0) {
+          angles.push(this.angle + 0.1);
+          angles.push(this.angle - 0.1);
+        }
+
+        for (const angle of angles) {
+          const bx = this.x + Math.cos(angle) * offset;
+          const by = this.y + Math.sin(angle) * offset;
+          entities.bullets.push(new Bullet(bx, by, angle, this));
+        }
+      }
+
+      damage(n) {
+        this.health -= n;
+        if (this.health <= 0) this.destroy();
+        else if (!this.isBot && !this.isTeammate) {
+          this.health = clamp(this.health, 0, maxHealth);
+        }
+      }
+
+      destroy() {
+        for (let i = 0; i < 20; i++) {
+          entities.particles.push(new Particle(this.x, this.y, rand(0.5, 5), rand(0, TAU), rand(0.6, 2), this.color));
+        }
+
+        if (this.isBot) {
+          score += 100;
+          entities.bots = entities.bots.filter(b => b !== this);
+          // Spawn one guaranteed health and some EXP when a bot dies
+          spawnHealthPickup(this.x, this.y, true); // Force a local spawn on kill, ignoring global limit check
+          addExperience(randInt(5, 10));
+          playKillSound();
+        } else if (this.isTeammate) {
+          entities.teammates = entities.teammates.filter(t => t !== this);
+          hasTeammate = false;
+        } else {
+          player = null;
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        // Ship shape
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.moveTo(18, 0); ctx.lineTo(-10, 12); ctx.lineTo(-6, 0); ctx.lineTo(-10, -12);
+        ctx.closePath();
+        ctx.fill();
+
+        // Hull line
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-4, -6, 2, 12);
+
+        ctx.restore();
+
+        // Health Bar (Scaled by maxHealth)
+        const barW = 32, barH = 6;
+        const currentW = barW * (this.health / this.maxHealth);
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(this.x - barW / 2, this.y - 30, barW, barH);
+        ctx.fillStyle = this.isBot ? '#ffadad' : (this.isTeammate ? '#a78bfa' : '#8bd3ff');
+        ctx.fillRect(this.x - barW / 2, this.y - 30, currentW, barH);
+      }
+    }
+
+    class Bullet {
+      constructor(x, y, angle, owner) {
+        this.x = x; this.y = y;
+        this.speed = BULLET_SPEED;
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+        this.r = 5;
+        this.owner = owner;
+        this.life = 500;
+        this.damage = BULLET_DAMAGE;
+      }
+
+      update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.life -= dt;
+
+        if (this.life <= 0 || this.x < 0 || this.x > WORLD_W || this.y < 0 || this.y > WORLD_H) {
+          this.destroy();
+          return;
+        }
+
+        const targets = this.owner === player || entities.teammates.includes(this.owner)
+          ? entities.bots
+          : [player, ...entities.teammates].filter(Boolean);
+
+        for (let s of targets.filter(s => s)) {
+          const combinedR = s.collisionR + this.r;
+          if (distSq(this, s) < combinedR * combinedR) {
+            s.damage(this.damage);
+            this.destroy();
+            return;
+          }
+        }
+
+        for (let isl of entities.islands) {
+          const combinedR = isl.r + this.r;
+          if (distSq(this, isl) < combinedR * combinedR) {
+            this.destroy();
+            return;
+          }
+        }
+      }
+
+      destroy() { entities.bullets = entities.bullets.filter(b => b !== this); }
+
+      draw(ctx) {
+        ctx.beginPath();
+        ctx.fillStyle = this.owner === player || entities.teammates.includes(this.owner) ? '#ffd6a5' : '#ff9999';
+        ctx.arc(this.x, this.y, this.r, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    class Island {
+      constructor(x, y, r) { this.x = x; this.y = y; this.r = r; this.color = '#155'; }
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.beginPath();
+        for (let i = 0; i < 7; i++) {
+          const a = TAU * (i / 7);
+          const bump = 0.12;
+          const rx = this.r * (1 + Math.sin(a * 2.5) * bump);
+          const ry = this.r * (1 + Math.cos(a * 3.5) * bump);
+          ctx.lineTo(Math.cos(a) * rx, Math.sin(a) * ry);
+        }
+        ctx.closePath();
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    class Particle {
+      constructor(x, y, speed, angle, life, color = '#fff') {
+        this.x = x; this.y = y;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.life = life; this.max = life;
+        this.size = rand(1.5, 3.5);
+        this.color = color;
+      }
+
+      update(dt) {
+        this.x += this.vx * dt; this.y += this.vy * dt;
+        this.vx *= 0.99; this.vy *= 0.99;
+        this.life -= dt;
+      }
+
+      draw(ctx) {
+        ctx.globalAlpha = clamp(this.life / this.max, 0, 1);
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // --- PICKUPS & EXP FUNCTIONS ---
+
+    function createPickup(x, y, type) {
+      const pickup = {
+        x,
+        y,
+        type: type,
+        t: 600,
+        regen: type === 'health' ? 30 : 0,
+        points: type === 'health' ? 0 : randInt(1, 2),
+        r: type === 'health' ? 8 : 8,
+        color: type === 'health' ? '#a8ffb8' : '#8dd5ff'
+      };
+
+      entities.pickups.push(pickup);
+    }
+
+    function spawnHealthPickup(x, y, forceSpawn = false) {
+      if (!forceSpawn) {
+        const p = findClearPosition(8 + 5);
+        if (p) {
+          createPickup(p.x, p.y, 'health');
+          return true;
+        }
+      } else {
+        const attempts = 10;
+        const searchRadius = 100;
+        for (let i = 0; i < attempts; i++) {
+          const tempX = clamp(rand(x - searchRadius, x + searchRadius), 30, WORLD_W - 30);
+          const tempY = clamp(rand(y - searchRadius, y + searchRadius), 30, WORLD_H - 30);
+          let clear = true;
+          for (const isl of entities.islands) {
+            if (dist({ x: tempX, y: tempY }, isl) < isl.r + 8 + 5) { clear = false; break; }
+          }
+          if (clear) {
+            createPickup(tempX, tempY, 'health');
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function spawnExpPickup() {
+      const p = findClearPosition(5 + 5);
+      if (p) {
+        createPickup(p.x, p.y, 'exp');
+        return true;
+      }
+      return false;
+    }
+
+    function addExperience(amount) {
+      currentExp += amount;
+      checkLevelUp();
+    }
+
+    function checkAndReplenishPickups() {
+      if (healthPickupCount < MAX_HEALTH_PICKUPS) {
+        spawnHealthPickup();
+      }
+
+      if (expPickupCount < TARGET_EXP_PICKUPS) {
+        spawnExpPickup();
+      }
+    }
+
+
+    // --- GAME MANAGEMENT ---
+
+    function resetPlayerStats() {
+      level = 0;
+      currentExp = 0;
+      upgradesAvailable = 0;
+      maxHealth = 100;
+      fireRateMultiplier = 1;
+      multiShotCount = 0;
+      hasTeammate = false;
+
+      // Reset button statuses visually
+      document.getElementById('health-status').innerText = 'Max: 100';
+      document.getElementById('multishot-status').innerText = 'Not Acquired';
+      document.getElementById('speedyfire-status').innerText = 'Rate: 1x';
+      document.getElementById('teammate-status').innerText = 'Locked';
+    }
+
+    function spawnTeammate(x, y) {
+      entities.teammates.push(new Ship(x, y, '#a78bfa', false, true));
+    }
+
+    function spawnWorld() {
+      // Reset State
+      resetPlayerStats();
+      player = null;
+      entities = { bullets: [], bots: [], islands: [], particles: [], pickups: [], teammates: [] };
+      score = 0;
+      healthPickupCount = 0;
+      expPickupCount = 0;
+
+      // --- WORLD SETUP ---
+      const numBots = Math.floor(rand(10, 20));
+      const numIslands = Math.floor(rand(100, 150));
+      initialBotCount = numBots;
+
+      // Local helper to find clear position for ships/islands (requires larger clearance)
+      const findClearShipPosition = (minR) => {
+        let attempts = 0;
+        let p;
+        while (attempts < 200) {
+          p = { x: rand(80, WORLD_W - 80), y: rand(80, WORLD_H - 80) };
+          let clear = true;
+          for (const isl of entities.islands) {
+            if (dist(p, isl) < isl.r + minR) {
+              clear = false;
+              break;
+            }
+          }
+          if (clear) return p;
+          attempts++;
+        }
+        return { x: WORLD_W / 2, y: WORLD_H / 2 };
+      };
+
+      // Islands
+      for (let i = 0; i < numIslands; i++) {
+        const p = findClearShipPosition(68);
+        entities.islands.push(new Island(p.x, p.y, rand(30, 75)));
+      }
+
+      // Player
+      const pPos = findClearShipPosition(50);
+      player = new Ship(pPos.x, pPos.y, '#8bd3ff', false);
+
+      // Bots
+      for (let i = 0; i < numBots; i++) {
+        const botPos = findClearShipPosition(50);
+        entities.bots.push(new Ship(botPos.x, botPos.y, '#ffadad', true));
+      }
+
+      console.log(`World spawned. Bot Vision Range: ${BOT_VISION_RANGE} (60 degrees cone).`);
+
+      checkLevelUp();
+      updateUpgradeButtons();
+    }
+
+    function endGame(status) {
+      gameState = status;
+      const title = document.getElementById('endGameTitle');
+      const message = document.getElementById('endGameMessage');
+
+      document.getElementById('gameOverOverlay').style.display = 'flex';
+      usernameAboveShipEl.style.display = 'none';
+
+      // Hide leaderboard
+      document.getElementById('leaderboard').classList.add('hidden');
+
+      if (status === 'win') {
+        title.innerText = "VICTORY!";
+        title.setAttribute('style', 'text-shadow:0 0 10px var(--multishot);color: var(--multishot);');
+        message.innerText = `Congratulations!! You have defeated ${initialBotCount} enemies! GGZ!`;
+      } else {
+        title.innerText = "DEFEAT!";
+        title.setAttribute('style', 'text-shadow:0 0 10px var(--fire);color: var(--fire);');
+        message.innerText = "Well played! Your ship has been destroyed.";
+      }
+
+      document.getElementById('endGameUsername').innerText = playerName;
+      document.getElementById('finalLevel').innerText = level;
+      document.getElementById('eliminations').innerText = initialBotCount - entities.bots.length;
+      document.getElementById('finalScore').innerText = score;
+    }
+
+
+    function update(dt) {
+      if (gameState !== 'playing') return;
+
+      // 1. Check for win/loss conditions
+      if (player && entities.bots.length === 0) {
+        endGame('win');
+        return;
+      } else if (!player) {
+        endGame('lose');
+        return;
+      }
+
+
+      // 2. Player Input & Camera
+      if (player) {
+        player.angle = Math.atan2(mouse.y - H / 2, mouse.x - W / 2);
+        player.speed = 0;
+        if (keys['w']) player.speed = 0.15;
+        else if (keys['s']) player.speed = -0.07;
+
+        // Firing logic
+        if (mouse.down) {
+          if (player.reload <= 0) {
+            player.fire();
+          }
+        }
+        player.update(dt);
+        camera.x = player.x;
+        camera.y = player.y;
+      }
+
+      // 3. Dynamic Pickup Spawning (Global Replenishment Logic)
+      checkAndReplenishPickups();
+
+      // 4. Update Entities
+      for (let b of entities.bullets) b.update(dt);
+      for (let bot of entities.bots) bot.update(dt);
+      for (let team of entities.teammates) team.update(dt);
+
+      // Update Particles & Remove dead ones
+      entities.particles = entities.particles.filter(p => {
+        p.update(dt);
+        return p.life > 0;
+      });
+
+      // Update Pickups & Handle collision/TTL
+      healthPickupCount = 0;
+      expPickupCount = 0;
+      entities.pickups = entities.pickups.filter(p => {
+        p.t -= dt;
+        if (p.t <= 0) return false;
+
+        // Player collision check
+        if (player && distSq(p, player) < (p.r + player.collisionR) ** 2) {
+          if (p.type === 'health') {
+            player.health = clamp(player.health + p.regen, 0, maxHealth);
+          } else if (p.type === 'exp') {
+            addExperience(p.points);
+            score += 5;
+          }
+          return false;
+        }
+
+        // Bot collision check (Bots can collect EXP/Health while roaming)
+        const allShips = entities.bots.filter(s => s);
+        for (let s of allShips) {
+          if (distSq(p, s) < (p.r + s.collisionR) ** 2) {
+            // Bots only collect health if they are below max health
+            if (p.type === 'health' && s.health < s.maxHealth) {
+              s.health = clamp(s.health + p.regen, 0, s.maxHealth);
+              return false; // Pickup collected
+            } else if (p.type === 'exp') {
+              // Bots can absorb EXP, even if it doesn't do anything for them currently
+              return false; // Pickup collected
+            }
+          }
+        }
+
+
+        // Recount pickups still in game
+        if (p.type === 'health') {
+          healthPickupCount++;
+        } else if (p.type === 'exp') {
+          expPickupCount++;
+        }
+        return true;
+      });
+
+      // 5. Ship-Island Collisions
+      const allShips = [player, ...entities.bots, ...entities.teammates].filter(s => s);
+      for (let s of allShips) {
+        for (let isl of entities.islands) {
+          const combinedR = isl.r + s.collisionR;
+          const d = dist(s, isl);
+          if (d < combinedR) {
+            const ang = Math.atan2(s.y - isl.y, s.x - isl.x);
+            const overlap = combinedR - d;
+
+            s.x += Math.cos(ang) * overlap;
+            s.y += Math.sin(ang) * overlap;
+
+            s.damage(0.04 * overlap * dt);
+            s.vx *= 0.5;
+            s.vy *= 0.5;
+          }
+        }
+      }
+
+      // 6. Update HUD Info & Level Bar
+      const totalShips = (player ? 1 : 0) + entities.bots.length + entities.teammates.length;
+      const eliminations = initialBotCount - entities.bots.length;
+      document.getElementById('health').innerText = player ? `Health: ${Math.round(player.health)}% (Max: ${maxHealth})` : 'Health: DEAD';
+      document.getElementById('score').innerText = 'Score: ' + score;
+      document.getElementById('elimination').innerText = 'Elimination: ' + eliminations;
+      document.getElementById('ship').innerText = 'Ships:' + totalShips;
+      document.getElementById('island').innerText = 'Islands: ' + entities.islands.length;
+
+      // Update Level Bar
+      const nextExp = getExpNeeded(level);
+      const expPercent = nextExp === 0 ? 100 : Math.min(100, (currentExp / nextExp) * 100);
+      document.getElementById('current-level').innerText = `Level ${level}`;
+      document.getElementById('exp-info').innerText = nextExp > 0 ? `${Math.round(currentExp)} / ${nextExp} Exp (${upgradesAvailable} pts)` : `MAX LEVEL (${upgradesAvailable} pts)`;
+      document.querySelector('.exp-fill').style.width = `${expPercent}%`;
+
+      // ...inside update(dt)...
+      const leaderboardData = getLeaderboardData();
+      renderLeaderboard(leaderboardData);
+      // ...existing code...
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(W / 2 - camera.x, H / 2 - camera.y);
+
+      // Draw subtle grid
+      ctx.save();
+      ctx.globalAlpha = 0.05;
+      ctx.strokeStyle = '#1d9db9';
+      ctx.lineWidth = 1;
+      const step = 200;
+      for (let x = Math.floor((camera.x - W / 2) / step) * step; x < camera.x + W / 2 + step; x += step) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_H); ctx.stroke();
+      }
+      for (let y = Math.floor((camera.y - H / 2) / step) * step; y < camera.y + W / 2 + step; y += step) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WORLD_W, y); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Draw world boundary
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
+
+      // Draw all game objects in world coordinates  
+      for (let isl of entities.islands) isl.draw(ctx);
+
+      // Draw pickups
+      for (let p of entities.pickups) {
+        ctx.beginPath();
+        ctx.fillStyle = p.color;
+        ctx.arc(p.x, p.y, p.r, 0, TAU);
+        ctx.fill();
+      }
+
+      for (let b of entities.bullets) b.draw(ctx);
+      for (let bot of entities.bots) bot.draw(ctx);
+      for (let team of entities.teammates) team.draw(ctx);
+      if (player) player.draw(ctx);
+      for (let p of entities.particles) p.draw(ctx);
+
+      ctx.restore();
+
+      // --- UI Elements (Screen Coordinates) ---
+
+      // Crosshair (Only draw when playing)
+      if (gameState === 'playing') {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        ctx.lineWidth = 2;
+        ctx.moveTo(mouse.x - 8, mouse.y); ctx.lineTo(mouse.x + 8, mouse.y);
+        ctx.moveTo(mouse.x, mouse.y - 8); ctx.lineTo(mouse.x, mouse.y + 8);
+        ctx.stroke();
+      }
+
+      // Minimap
+      drawMinimap();
+    }
+
+    function drawMinimap() {
+      const size = 100;
+      const mW = size, mH = size;
+      const mx = W - mW - 16, my = 16;
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = 'rgba(2,6,10,0.6)';
+      ctx.fillRect(mx - 4, my - 4, mW + 8, mH + 8);
+
+      ctx.beginPath();
+      ctx.rect(mx, my, mW, mH);
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.clip();
+
+      const scaleX = mW / WORLD_W;
+      const scaleY = mH / WORLD_H;
+
+      // Islands
+      ctx.fillStyle = '#3a7';
+      for (let isl of entities.islands) {
+        ctx.beginPath();
+        ctx.arc(mx + isl.x * scaleX, my + isl.y * scaleY, Math.max(1, isl.r * scaleX), 0, TAU);
+        ctx.fill();
+      }
+
+      // NO PICKUPS DRAWN ON MINIMAP (as requested)
+
+      // Teammates
+      ctx.fillStyle = '#a78bfa';
+      for (let t of entities.teammates) ctx.fillRect(mx + t.x * scaleX - 3, my + t.y * scaleY - 3, 6, 6);
+
+      // Bots (Visible regardless of vision status, as requested)
+      ctx.fillStyle = '#f88';
+      for (let b of entities.bots) ctx.fillRect(mx + b.x * scaleX - 2, my + b.y * scaleY - 2, 4, 4);
+
+      // Player
+      if (player) {
+        ctx.fillStyle = '#8bd3ff';
+        ctx.fillRect(mx + player.x * scaleX - 3, my + player.y * scaleY - 3, 6, 6);
+      }
+
+      ctx.restore();
+    }
+
+    // --- GAME LOOP AND INPUT HANDLERS ---
+    let last = performance.now();
+    function loop(t) {
+      const dt = Math.min(60, t - last);
+      last = t;
+
+      update(dt / 16.6667);
+      draw();
+
+      // Show/hide in-game menu button based on game state
+      const inGameMenuBtn = document.getElementById('inGameMenuBtn');
+      if (gameState === 'playing') {
+        inGameMenuBtn.style.display = 'block';
+      } else {
+        inGameMenuBtn.style.display = 'none';
+      }
+
+      // Update floating username position
+      if (player && gameState !== 'menu') {
+        const screenX = W / 2 - camera.x + player.x;
+        const screenY = H / 2 - camera.y + player.y;
+        usernameAboveShipEl.style.left = `${screenX}px`;
+        usernameAboveShipEl.style.top = `${screenY - 40}px`;
+        usernameAboveShipEl.style.display = 'block';
+      } else {
+        usernameAboveShipEl.style.display = 'none';
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+
+    // --- INPUT & UI HANDLERS ---
+    window.addEventListener('resize', () => {
+      W = canvas.width = innerWidth;
+      H = canvas.height = innerHeight;
+    });
+    addEventListener('keydown', e => {
+      keys[e.key.toLowerCase()] = true;
+    });
+    addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('mousedown', e => {
+      mouse.down = true;
+    });
+    canvas.addEventListener('mouseup', e => { mouse.down = false; });
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    document.getElementById('leaderboard').classList.add('hidden');
+    document.getElementById('startBtn').addEventListener('click', () => {
+      playerName = document.getElementById('usernameInput').value || 'Player';
+      usernameAboveShipEl.innerText = playerName;
+      usernameHudEl.innerText = 'Username: ' + playerName;
+      document.getElementById('overlay').style.display = 'none';
+      gameState = 'playing';
+      document.getElementById('leaderboard').classList.remove('hidden');
+      spawnWorld();
+    });
+    disableUpgradeButtons();
+    document.getElementById('tutorialBtn').addEventListener('click', () => {
+      showMessage('Quick Tutorial', 'Controls:\nW/S: Thrust/Reverse\nMouse: Aim & Turn\nClick: Shoot Cannonballs\n\nObjective: Eliminate all enemy ships, level up by collecting blue experience orbs, and choose upgrades wisely! Green orbs restore health.\n\nGood luck, Captain!');
+    });
+
+    document.getElementById('closeMessageBtn').addEventListener('click', () => {
+      document.getElementById('messageBox').style.display = 'none';
+    });
+
+    document.getElementById('playAgainBtn').addEventListener('click', () => {
+      document.getElementById('gameOverOverlay').style.display = 'none';
+      gameState = 'playing';
+      document.getElementById('leaderboard').classList.remove('hidden');
+      spawnWorld();
+    });
+
+    document.getElementById('returnToMenuBtn').addEventListener('click', () => {
+      document.getElementById('gameOverOverlay').style.display = 'none';
+      document.getElementById('overlay').style.display = 'flex';
+      gameState = 'menu';
+      document.getElementById('leaderboard').classList.add('hidden');
+      player = null;
+    });
+
+    // Upgrade Button Listeners (Always visible)
+    document.querySelectorAll('.upgrade-button').forEach(button => {
+      button.addEventListener('click', function () {
+        const type = this.dataset.upgrade;
+        if (upgradesAvailable > 0 && !this.classList.contains('disabled')) {
+          applyUpgrade(type);
+        } else if (type === 'teammate' && level < TEAMMATE_LVL_REQ) {
+          showMessage('Upgrade Locked', `The Teammate upgrade requires Player Level ${TEAMMATE_LVL_REQ}. You are currently Level ${level}.`);
+        } else if (upgradesAvailable === 0) {
+          showMessage('No Points', 'You need to level up to gain an upgrade point!');
+        }
+      });
+    });
+    // --- LEADERBOARD CORE LOGIC ---
+    /**
+     * Calculates and sorts all entries for the leaderboard.
+     * Rank Value = Score + (Eliminations * 100)
+     * @returns {Array<Object>} Sorted list of player and bot entries.
+     */
+    function getLeaderboardData() {
+      // Player eliminations and score
+      const currentBotsRemaining = entities.bots.length;
+      const playerEliminations = initialBotCount - currentBotsRemaining;
+      const playerRankValue = score + (playerEliminations * 100);
+
+      const playerEntry = {
+        name: playerName,
+        score: score,
+        eliminations: playerEliminations,
+        rankValue: playerRankValue,
+        isPlayer: true
+      };
+
+      // Real bots: Give them a score (could be based on health, or random for demo)
+      const botEntries = entities.bots.map((b, i) => ({
+        name: b.name || `Bot ${i + 1}`,
+        score: Math.round(b.health), // Or use another metric
+        eliminations: 0, // Track if you implement bot-vs-bot
+        rankValue: Math.round(b.health), // Or another formula
+        isPlayer: false
+      }));
+
+      const allEntries = [playerEntry, ...botEntries];
+      allEntries.sort((a, b) => b.rankValue - a.rankValue);
+
+      return allEntries;
+    }
+
+    /**
+     * Renders the leaderboard list, showing the Top 5 and the player's rank if they are outside the Top 5.
+     * @param {Array<Object>} allEntries - Sorted list of all ships.
+     */
+    function renderLeaderboard(allEntries) {
+      const maxDisplay = 5;
+      let html = '';
+      let playerRank = -1;
+      let playerInTop = false;
+
+      // Find the player's entry and rank
+      const playerEntry = allEntries.find(entry => entry.isPlayer);
+      for (let i = 0; i < allEntries.length; i++) {
+        if (allEntries[i].isPlayer) {
+          playerRank = i + 1;
+          if (playerRank <= maxDisplay) {
+            playerInTop = true;
+          }
+          break;
+        }
+      }
+
+      // 1. Generate the Top 5 entries
+      for (let i = 0; i < Math.min(allEntries.length, maxDisplay); i++) {
+        const entry = allEntries[i];
+        const isPlayer = entry.isPlayer;
+        // Add bold/highlight style if this entry is the player
+        const style = isPlayer ? 'style="color: #a8ffb8; font-weight: bold;"' : '';
+
+        html += `<li ${style}>
+                    <span class="rank">#${i + 1}</span>
+                    <span class="name">${entry.name} ${isPlayer ? '(You)' : ''}</span>
+                    <span class="stats">${entry.score}</span>
+                </li>`;
+      }
+
+      // 2. Add player's rank separately if they are outside the Top 5
+      if (!playerInTop && playerEntry) {
+        html += `<li class="player-rank">
+                    <span class="rank">#${playerRank}</span>
+                    <span class="name">${playerEntry.name} (You)</span>
+                    <span class="stats">${playerEntry.score}</span>
+                </li>`;
+      }
+
+      leaderboardListEl.innerHTML = html;
+    }
+
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const buttonVolume = document.getElementById('buttonVolume');
+
+    // --- VOLUME CONTROLS ---
+    // Get all sound elements
+    const buttonClickSound = document.getElementById('buttonClickSound');
+    const killSound = document.getElementById('killSound');
+    const levelUpSound = document.getElementById('levelUpSound');
+    const upgradeSound = document.getElementById('upgradeSound');
+    const music1 = document.getElementById('music1');
+
+    // Music volume sliders and labels
+    const musicVolumeSlider = document.getElementById('musicVolume');
+    const musicVolumeValue = document.getElementById('musicVolumeValue');
+    const musicVolumeInGame = document.getElementById('musicVolumeInGame');
+    const musicVolumeValueInGame = document.getElementById('musicVolumeValueInGame');
+
+    // Button volume sliders and labels
+    const buttonVolumeSlider = document.getElementById('buttonVolume');
+    const buttonVolumeValue = document.getElementById('buttonVolumeValue');
+    const buttonVolumeInGame = document.getElementById('buttonVolumeInGame');
+    const buttonVolumeValueInGame = document.getElementById('buttonVolumeValueInGame');
+
+    // Unified music volume setter (controls music, level up, kill, and upgrade sounds)
+    function setMusicVolume(vol) {
+      music1.volume = vol * 0.5;
+      levelUpSound.volume = vol * 0.5;
+      killSound.volume = vol * 0.5;
+      upgradeSound.volume = vol * 0.5;
+    }
+
+    // Unified button volume setter
+    function setButtonVolume(vol) {
+      buttonClickSound.volume = vol * 0.5;
+    }
+
+    // --- SYNC SLIDERS BOTH WAYS ---
+    // Music volume
+    musicVolumeSlider.addEventListener('input', function () {
+      setMusicVolume(this.value / 100);
+      musicVolumeValue.innerText = this.value;
+      musicVolumeInGame.value = this.value;
+      musicVolumeValueInGame.innerText = this.value;
+    });
+    musicVolumeInGame.addEventListener('input', function () {
+      setMusicVolume(this.value / 100);
+      musicVolumeValueInGame.innerText = this.value;
+      musicVolumeSlider.value = this.value;
+      musicVolumeValue.innerText = this.value;
+    });
+
+    // Button volume
+    buttonVolumeSlider.addEventListener('input', function () {
+      setButtonVolume(this.value / 100);
+      buttonVolumeValue.innerText = this.value;
+      buttonVolumeInGame.value = this.value;
+      buttonVolumeValueInGame.innerText = this.value;
+      playButtonClick();
+    });
+    buttonVolumeInGame.addEventListener('input', function () {
+      setButtonVolume(this.value / 100);
+      buttonVolumeValueInGame.innerText = this.value;
+      buttonVolumeSlider.value = this.value;
+      buttonVolumeValue.innerText = this.value;
+      playButtonClick();
+    });
+
+    // --- Set initial volumes and sync both labels/sliders ---
+    musicVolumeSlider.value = 100;
+    musicVolumeValue.innerText = 100;
+    musicVolumeInGame.value = 100;
+    musicVolumeValueInGame.innerText = 100;
+    setMusicVolume(1);
+
+    buttonVolumeSlider.value = 100;
+    buttonVolumeValue.innerText = 100;
+    buttonVolumeInGame.value = 100;
+    buttonVolumeValueInGame.innerText = 100;
+    setButtonVolume(1);
+
+    let currentMusic = null;
+
+    // Show settings modal
+    settingsBtn.addEventListener('click', () => {
+      settingsOverlay.style.display = 'flex';
+      playButtonClick();
+    });
+
+    // Hide settings modal
+    closeSettingsBtn.addEventListener('click', () => {
+      settingsOverlay.style.display = 'none';
+      playButtonClick();
+    });
+
+    // Play button click sound for all menu buttons
+    function playButtonClick() {
+      buttonClickSound.currentTime = 0;
+      buttonClickSound.play();
+    }
+
+    // Add click sound to all menu buttons
+    ['startBtn', 'tutorialBtn', 'settingsBtn', 'closeMessageBtn', 'closeSettingsBtn', 'playAgainBtn', 'returnToMenuBtn'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', playButtonClick);
+    });
+
+    // Music controls
+    function playMusic(musicEl) {
+      if (currentMusic && currentMusic !== musicEl) {
+        currentMusic.pause();
+        currentMusic.currentTime = 0;
+      }
+      currentMusic = musicEl;
+      currentMusic.volume = musicVolume.value / 100;
+      currentMusic.play();
+    }
+
+    // Loop music1 when it ends
+    music1.addEventListener('ended', () => {
+      music1.currentTime = 0;
+      music1.play();
+    });
+
+    // Try to autoplay music on page load/user interaction
+    function tryAutoplayMusic() {
+      playMusic(music1);
+    }
+    window.addEventListener('load', () => {
+      tryAutoplayMusic();
+      window.addEventListener('click', tryAutoplayMusic);
+      window.addEventListener('keydown', tryAutoplayMusic);
+    });
+
+    function playKillSound() {
+      const killSound = document.getElementById('killSound');
+      if (killSound && killSound.src) {
+        killSound.currentTime = 0;
+        killSound.play();
+      }
+    }
+
+    function playLevelUpSound() {
+      const levelUpSound = document.getElementById('levelUpSound');
+      if (levelUpSound && levelUpSound.src) {
+        levelUpSound.currentTime = 0;
+        levelUpSound.play();
+      }
+    }
+
+    const inGameDialog = document.getElementById('inGameDialog');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const quitToMenuBtn = document.getElementById('quitToMenuBtn');
+
+    // Show dialog when menu button is pressed
+    inGameMenuBtn.addEventListener('click', () => {
+      inGameDialog.style.display = 'flex';
+      gameState = 'paused';
+      playButtonClick();
+    });
+
+    // Resume game
+    resumeBtn.addEventListener('click', () => {
+      inGameDialog.style.display = 'none';
+      gameState = 'playing';
+      playButtonClick();
+    });
+
+    // Quit to menu
+    quitToMenuBtn.addEventListener('click', () => {
+      inGameDialog.style.display = 'none';
+      document.getElementById('overlay').style.display = 'flex';
+      gameState = 'menu';
+      document.getElementById('leaderboard').classList.add('hidden');
+      player = null;
+      playButtonClick();
+      disableUpgradeButtons();
+
+    });
+
+
+    // Sync values between settings and in-game dialog
+    function syncVolumeSliders(from, to, toValue) {
+      to.value = from.value;
+      toValue.textContent = from.value;
+    }
+
+    function playUpgradeSound() {
+      const upgradeSound = document.getElementById('upgradeSound');
+      if (upgradeSound && upgradeSound.src) {
+        upgradeSound.currentTime = 0;
+        upgradeSound.play();
+      }
+    }
+    function disableUpgradeButtons() {
+      document.querySelectorAll('.upgrade-button').forEach(btn => {
+        btn.classList.add('disabled');
+        btn.classList.remove('ready');
+      });
+    }
+
+    /* --- MOBILE RESPONSIVENESS & JOYSTICK --- */
+    function isMobile() {
+      return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+    }
+    function isLandscape() {
+      return window.innerWidth > window.innerHeight;
+    }
+    function updateMobileUI() {
+      if (isMobile()) {
+        if (!isLandscape()) {
+          document.getElementById('rotateDeviceOverlay').style.display = 'flex';
+        } else {
+          document.getElementById('rotateDeviceOverlay').style.display = 'none';
+        }
+        // Show joystick only in game and landscape
+        document.getElementById('joystickContainer').style.display =
+          (gameState === 'playing' && isLandscape()) ? 'block' : 'none';
+      } else {
+        document.getElementById('rotateDeviceOverlay').style.display = 'none';
+        document.getElementById('joystickContainer').style.display = 'none';
+      }
+    }
+    window.addEventListener('resize', updateMobileUI);
+    window.addEventListener('orientationchange', updateMobileUI);
+    setInterval(updateMobileUI, 500);
+
+    /* --- JOYSTICK LOGIC --- */
+    /* --- JOYSTICK LOGIC (smaller, more precise) --- */
+    let joystickActive = false, joystickDir = { x: 0, y: 0 };
+    const joystick = document.getElementById('joystickContainer');
+    const knob = document.getElementById('joystickKnob');
+    const base = document.getElementById('joystickBase');
+    let joyCenter = { x: 35, y: 35 }; // Center for 70x70
+
+    function setJoystick(x, y) {
+      // Clamp to 25px radius
+      let dx = x - joyCenter.x, dy = y - joyCenter.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 25) {
+        dx *= 25 / dist; dy *= 25 / dist;
+        x = joyCenter.x + dx; y = joyCenter.y + dy;
+      }
+      knob.style.left = (x - 17) + "px";
+      knob.style.top = (y - 17) + "px";
+      joystickDir = { x: dx / 25, y: dy / 25 };
+    }
+    function resetJoystick() {
+      knob.style.left = "18px";
+      knob.style.top = "18px";
+      joystickDir = { x: 0, y: 0 };
+    }
+    joystick.addEventListener('touchstart', function (e) {
+      joystickActive = true;
+      const t = e.touches[0];
+      setJoystick(t.clientX - joystick.getBoundingClientRect().left, t.clientY - joystick.getBoundingClientRect().top);
+      e.preventDefault();
+    });
+    joystick.addEventListener('touchmove', function (e) {
+      if (!joystickActive) return;
+      const t = e.touches[0];
+      setJoystick(t.clientX - joystick.getBoundingClientRect().left, t.clientY - joystick.getBoundingClientRect().top);
+      e.preventDefault();
+    });
+    joystick.addEventListener('touchend', function (e) {
+      joystickActive = false;
+      resetJoystick();
+      e.preventDefault();
+    });
+    resetJoystick();
+
+    /* --- MOBILE AUTO-FIRE & JOYSTICK MOVEMENT --- */
+    let isMobileAutoFire = false;
+    function mobileGameLoopPatch() {
+      if (isMobile() && gameState === 'playing') {
+        if (player) {
+          // Joystick moves crosshair only
+          if (Math.abs(joystickDir.x) > 0.18 || Math.abs(joystickDir.y) > 0.18) {
+            mouse.x = W / 2 + joystickDir.x * 80;
+            mouse.y = H / 2 + joystickDir.y * 80;
+            // Ship moves toward crosshair only when joystick is pressed
+            keys['w'] = true;
+            mouse.down = true; // <-- Auto-fire when moving joystick
+          } else {
+            keys['w'] = false;
+            mouse.down = false; // <-- Stop firing when not moving joystick
+          }
+          keys['s'] = false;
+          keys['a'] = false;
+          keys['d'] = false;
+          firing = keys['w']; // Only autofire when moving
+          isMobileAutoFire = keys['w'];
+        }
+      } else {
+        if (isMobileAutoFire) firing = false;
+        isMobileAutoFire = false;
+        mouse.down = false; // <-- Stop firing if not mobile or not playing
+      }
+      requestAnimationFrame(mobileGameLoopPatch);
+    }
+    mobileGameLoopPatch();
+    document.getElementById('instaLink').addEventListener('click', function (e) {
+      var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile) {
+        // Try to open Instagram app
+        window.location = "instagram://user?username=_skeli.thoughts_";
+        // Fallback: open in browser after short delay
+        setTimeout(function () {
+          window.open("https://www.instagram.com/_skeli.thoughts_/", "_blank");
+        }, 500);
+        e.preventDefault();
+      }
+    });
+
+  </script>
+</body>
+
+</html>
