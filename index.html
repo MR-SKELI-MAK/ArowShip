@@ -500,8 +500,6 @@
 
       .app,
       canvas {
-        transform: scale(0.85);
-        transform-origin: top left;
         width: 100vw !important;
         height: 100vh !important;
       }
@@ -801,7 +799,7 @@ color: transparent;">
     let camera = { x: WORLD_W / 2, y: WORLD_H / 2 };
     let healthPickupCount = 0;
     let expPickupCount = 0;
-
+    let firing = false;
     // --- PLAYER STATS ---
     let level = 0;
     let currentExp = 0;
@@ -826,6 +824,58 @@ color: transparent;">
   ];
   return names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 1000);
 }
+// --- FULLSCREEN & MOBILE UI IMPROVEMENTS ---
+
+// Request fullscreen on first user interaction (mobile only)
+function requestFullscreenIfMobile() {
+  if (isMobile() && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+// Listen for first touch/click to trigger fullscreen on mobile
+window.addEventListener('touchstart', requestFullscreenIfMobile, { once: true });
+window.addEventListener('click', requestFullscreenIfMobile, { once: true });
+
+// --- IMPROVED MOBILE CANVAS SCALING ---
+function updateMobileCanvasScale() {
+  // Zoom out for devices below 900px width
+  if (window.innerWidth < 900) {
+    const scale = 0.55; // More zoomed out for small screens
+    canvas.style.transform = `scale(${scale})`;
+    canvas.style.transformOrigin = 'top left';
+    canvas.style.width = `${window.innerWidth / scale}px`;
+    canvas.style.height = `${window.innerHeight / scale}px`;
+  } else {
+    canvas.style.transform = '';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+  }
+}
+window.addEventListener('resize', updateMobileCanvasScale);
+window.addEventListener('orientationchange', updateMobileCanvasScale);
+updateMobileCanvasScale();
+
+// --- ENSURE ROTATE OVERLAY SHOWS ON MOBILE PORTRAIT ---
+function updateMobileUI() {
+  if (isMobile()) {
+    if (!isLandscape()) {
+      document.getElementById('rotateDeviceOverlay').style.display = 'flex';
+    } else {
+      document.getElementById('rotateDeviceOverlay').style.display = 'none';
+    }
+    // Show joystick only in game and landscape
+    document.getElementById('joystickContainer').style.display =
+      (gameState === 'playing' && isLandscape()) ? 'block' : 'none';
+  } else {
+    document.getElementById('rotateDeviceOverlay').style.display = 'none';
+    document.getElementById('joystickContainer').style.display = 'none';
+  }
+  updateMobileCanvasScale(); // Always update canvas scale on UI update
+}
+window.addEventListener('resize', updateMobileUI);
+window.addEventListener('orientationchange', updateMobileUI);
+setInterval(updateMobileUI, 500);
 
     /**
      * Finds a random position clear of islands, covering the entire map.
@@ -1134,9 +1184,9 @@ color: transparent;">
       }
 
 
-    fire() {
+fire() {
   // Only fire if reload is 0 or less
-  if (this.reload > 0) return;
+  if (this.reload > 0) return false; // Return false if can't fire
   this.reload = this.isBot || this.isTeammate ? this.reloadTimeBase : 18 / fireRateMultiplier;
 
   const offset = this.size + 8;
@@ -1152,6 +1202,7 @@ color: transparent;">
     const by = this.y + Math.sin(angle) * offset;
     entities.bullets.push(new Bullet(bx, by, angle, this));
   }
+  return true; // Return true if fired
 }
       damage(n) {
         this.health -= n;
@@ -1500,14 +1551,15 @@ for (let i = 0; i < numBots; i++) {
 
       // 2. Player Input & Camera
 if (player) {
- player.angle = Math.atan2(mouse.y - H / 2, mouse.x - W / 2);
+  player.angle = Math.atan2(mouse.y - H / 2, mouse.x - W / 2);
   player.speed = 0;
   if (keys['w']) player.speed = 0.15;
   else if (keys['s']) player.speed = -0.07;
 
-  // Firing logic (continuous fire while holding mouse)
-  if (mouse.down) {
-    player.fire(); // Always call fire, Ship.fire() checks reload
+  // Firing logic
+  if (firing) {
+    // Hold-to-fire: keep trying to fire every frame, Ship.fire() handles reload
+    player.fire();
   }
   player.update(dt);
   camera.x = player.x;
@@ -1767,10 +1819,14 @@ if (player) {
       mouse.y = e.clientY - rect.top;
     });
 
-    canvas.addEventListener('mousedown', e => {
-      mouse.down = true;
-    });
-    canvas.addEventListener('mouseup', e => { mouse.down = false; });
+   canvas.addEventListener('mousedown', e => {
+  mouse.down = true;
+  firing = true;
+});
+    canvas.addEventListener('mouseup', e => {
+  mouse.down = false;
+  firing = false;
+});
 
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     document.getElementById('leaderboard').classList.add('hidden');
