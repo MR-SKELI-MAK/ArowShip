@@ -1270,9 +1270,19 @@ fire() {
         this.owner = owner;
         this.life = 500;
         this.damage = BULLET_DAMAGE;
+        this.trailTimer = 0; // <-- added: controls trail spawn rate
       }
 
       update(dt) {
+        // Trail spawn (reduced frequency)
+        this.trailTimer -= dt;
+        if (this.trailTimer <= 0) {
+          this.trailTimer = 0.5; // spawn roughly every 0.5 frames (adjust for density)
+          const trailColor = (this.owner === player || entities.teammates.includes(this.owner)) ? '#ffd6a5' : '#ff9999';
+          // small, short-lived particle (speed 0 so it remains where spawned and fades)
+          entities.particles.push(new Particle(this.x, this.y, 0, 0, rand(4, 10), trailColor));
+        }
+
         this.x += this.vx * dt;
         this.y += this.vy * dt;
         this.life -= dt;
@@ -1368,7 +1378,7 @@ fire() {
         t: 600,
         regen: type === 'health' ? 30 : 0,
         points: type === 'health' ? 0 : randInt(1, 2),
-        r: type === 'health' ? 8 : 8,
+        r: type === 'health' ? 9 : 9,
         color: type === 'health' ? '#a8ffb8' : '#8dd5ff'
       };
 
